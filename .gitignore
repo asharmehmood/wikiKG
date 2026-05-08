@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Environment — .env.example is committed; .env is not
+.env
+
+# Frontend build output
+node_modules/
+frontend/dist/
+
+# Backend static dir (populated by Docker build from frontend/dist)
+backend/app/static/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
