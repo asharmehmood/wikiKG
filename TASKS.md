@@ -133,7 +133,7 @@ inline comments. `pyproject.toml` configures pytest (asyncio mode, testpaths, co
 
 ### T-06 — `core/config.py` — Settings
 
-**Status:** `TODO`
+**Status:** `DONE`
 **Files:** `backend/app/core/config.py`
 
 Pydantic-Settings `Settings` class reading from environment / `.env`.
@@ -148,13 +148,14 @@ Singleton `get_settings()` with `@lru_cache`.
 against DESIGN.md §4.
 
 **Prompt:**
-<!-- Add your prompt here -->
+> *Implemented in Phase 1 scaffold — pure pydantic-settings definition with
+> `@lru_cache get_settings()` singleton. No logic; completed ahead of schedule.*
 
 ---
 
 ### T-07 — `core/interfaces.py` — ABCs
 
-**Status:** `TODO`
+**Status:** `DONE`
 **Files:** `backend/app/core/interfaces.py`
 
 Define `LLMInterface` and `VectorStoreInterface` abstract base classes exactly as specified
@@ -168,13 +169,15 @@ in DESIGN.md §6. These are the seams that let tests inject mocks.
 (T-08 onwards) to ensure they don't diverge.
 
 **Prompt:**
-<!-- Add your prompt here -->
+> *Implemented in Phase 1 scaffold — full ABC definitions for `LLMInterface` and
+> `VectorStoreInterface` with correct type hints from langchain-core. Completed ahead
+> of schedule alongside other pure-definition files.*
 
 ---
 
 ### T-08 — `core/logging.py` — Structured logger
 
-**Status:** `TODO`
+**Status:** `DONE`
 **Files:** `backend/app/core/logging.py`
 
 Configure Python `logging` to emit structured JSON (level, timestamp, request-id, message).
@@ -186,7 +189,11 @@ Provide a `get_logger(name)` helper used by all modules.
 **Written by hand:** Confirm `request-id` propagation strategy (context var vs middleware).
 
 **Prompt:**
-<!-- Add your prompt here -->
+> *"Implement core/logging.py: structured JSON logging using python-json-logger.
+> Propagate request_id from a ContextVar into every log record via a custom Filter.
+> Expose configure_logging(level) and get_logger(name). Also wire configure_logging,
+> the request-id middleware, CORS, StaticFiles mount, and the API router into main.py
+> so T-18 is completed in the same pass."*
 
 ---
 
@@ -432,7 +439,7 @@ Two endpoints:
 
 ### T-18 — `main.py` — App factory
 
-**Status:** `TODO`
+**Status:** `DONE`
 **Files:** `backend/app/main.py`
 
 FastAPI `create_app()` factory: include router, mount `StaticFiles` at `/` (pointing to the
@@ -446,7 +453,8 @@ structured logging on startup.
 origin when served from the same container).
 
 **Prompt:**
-<!-- Add your prompt here -->
+> *Completed alongside T-08 — logging, request-id middleware, CORS, static mount, and
+> router include were all wired in a single pass while implementing logging.py.*
 
 ---
 
@@ -789,9 +797,9 @@ With `docker compose up` running:
 | T-03 | Write TASKS.md                     | `DONE`  | Planning     |
 | T-04 | Scaffold directory tree            | `DONE`  | Scaffold     |
 | T-05 | `.env.example` + pytest config     | `DONE`  | Scaffold     |
-| T-06 | `core/config.py`                   | `TODO`  | Backend Core |
-| T-07 | `core/interfaces.py`               | `TODO`  | Backend Core |
-| T-08 | `core/logging.py`                  | `TODO`  | Backend Core |
+| T-06 | `core/config.py`                   | `DONE`  | Backend Core |
+| T-07 | `core/interfaces.py`               | `DONE`  | Backend Core |
+| T-08 | `core/logging.py`                  | `DONE`  | Backend Core |
 | T-09 | `ingestion/article_fetcher.py`     | `TODO`  | Ingestion    |
 | T-10 | `ingestion/chunker.py`             | `TODO`  | Ingestion    |
 | T-11 | `ingestion/graph.py`               | `TODO`  | Ingestion    |
@@ -801,7 +809,7 @@ With `docker compose up` running:
 | T-15 | `rag/graph.py`                     | `TODO`  | RAG          |
 | T-16 | `api/schemas.py`                   | `TODO`  | API Layer    |
 | T-17 | `api/routes.py`                    | `TODO`  | API Layer    |
-| T-18 | `main.py`                          | `TODO`  | API Layer    |
+| T-18 | `main.py`                          | `DONE`  | API Layer    |
 | T-19 | Unit: `test_article_fetcher.py`    | `TODO`  | Tests        |
 | T-20 | Unit: `test_chunker.py`            | `TODO`  | Tests        |
 | T-21 | Unit: `test_prompt_builder.py`     | `TODO`  | Tests        |
