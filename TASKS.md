@@ -29,11 +29,7 @@ Decompose the brief into functional requirements (FR-1 to FR-5), non-functional 
 **Written by hand:** Final wording, constraint phrasing, and open-question decisions.
 
 **Prompt:**
-> *"Create a REQUIREMENTS.md from the take-home test brief. Decompose into functional
-> requirements (FR-1 to FR-5), non-functional requirements, in-scope / out-of-scope,
-> assumptions, and open questions. Then validate against online sources — LangChain RAG
-> docs, Pinecone RAG guide, Wikipedia REST API ToS, and OWASP LLM Top 10 — and patch any
-> gaps found."*
+N/A
 
 ---
 
@@ -57,11 +53,7 @@ trade-offs table, and security considerations.
 scores (verified against live leaderboard), final trade-off rationale text.
 
 **Prompt:**
-> *"Create DESIGN.md with technology decisions backed by comparison tables. Target machine:
-> HP Envy 16 GB RAM. Change the embedding model if a better option exists — research
-> MTEB leaderboard numbers. Remove any language that sounds like 'the user asked'."*
-> Follow-ups: replace Gemini → GitHub Copilot; clarify three modes: Ask (tool selection),
-> Plan (component design), Agent (multi-step implementation).
+N/A
 
 ---
 
@@ -76,10 +68,7 @@ scores (verified against live leaderboard), final trade-off rationale text.
 **Written by hand:** Status annotations as tasks complete; prompt text added per task.
 
 **Prompt:**
-> *"Design TASKS.md — the execution log. Decompose into parts that can be performed
-> easily and efficiently without losing context. Keep a prompt section for each task.
-> Should read like a real plan an agent could pick up and execute, with notes on what was
-> delegated to the AI and what was written by hand."*
+N/A
 
 ---
 
