@@ -203,7 +203,7 @@ Provide a `get_logger(name)` helper used by all modules.
 
 ### T-09 — `ingestion/article_fetcher.py`
 
-**Status:** `TODO`
+**Status:** `DONE`
 **Files:** `backend/app/ingestion/article_fetcher.py`
 
 Fetch a Wikipedia article via the REST API (`/api/rest_v1/page/mobile-sections/{title}`
@@ -233,7 +233,7 @@ Key implementation notes from DESIGN.md §4:
 
 ### T-10 — `ingestion/chunker.py`
 
-**Status:** `TODO`
+**Status:** `DONE`
 **Files:** `backend/app/ingestion/chunker.py`
 
 Thin wrapper around `RecursiveCharacterTextSplitter` that applies the parameters from
@@ -253,7 +253,7 @@ and attaches metadata (source_url, article_title, section_title, chunk_index) to
 
 ### T-11 — `ingestion/graph.py` — IngestionGraph
 
-**Status:** `TODO`
+**Status:** `DONE`
 **Files:** `backend/app/ingestion/graph.py`
 
 LangGraph `StateGraph` with nodes:
@@ -284,7 +284,7 @@ State dict: `{ url, raw_sections, cleaned_text, chunks, collection_id, summary, 
 
 ### T-12 — `rag/prompt_builder.py`
 
-**Status:** `TODO`
+**Status:** `DONE`
 **Files:** `backend/app/rag/prompt_builder.py`
 
 Assemble the final message list for the LLM from retrieved chunks and chat history.
@@ -312,7 +312,7 @@ exactly match DESIGN.md §4 (OWASP LLM01 mitigation).
 
 ### T-13 — `rag/summariser.py`
 
-**Status:** `TODO`
+**Status:** `DONE`
 **Files:** `backend/app/rag/summariser.py`
 
 Single LLM call: truncate article text to 8000 chars, build a one-shot prompt, call
@@ -331,7 +331,7 @@ truncation limit (verified against llama3.1:8b context window).
 
 ### T-14 — `rag/retriever.py`
 
-**Status:** `TODO`
+**Status:** `DONE`
 **Files:** `backend/app/rag/retriever.py`
 
 Wrap `QdrantVectorStore.similarity_search`: embed the query with the retrieval prefix
@@ -355,7 +355,7 @@ omitting it measurably reduces retrieval quality per DESIGN.md §8).
 
 ### T-15 — `rag/graph.py` — RagGraph
 
-**Status:** `TODO`
+**Status:** `DONE`
 **Files:** `backend/app/rag/graph.py`
 
 LangGraph `StateGraph` with nodes:
@@ -383,7 +383,7 @@ handler consumes this as an async generator for SSE.
 
 ### T-16 — `api/schemas.py` — Pydantic models
 
-**Status:** `TODO`
+**Status:** `DONE`
 **Files:** `backend/app/api/schemas.py`
 
 Request and response models:
@@ -408,7 +408,7 @@ Request and response models:
 
 ### T-17 — `api/routes.py` — FastAPI endpoints
 
-**Status:** `TODO`
+**Status:** `DONE`
 **Files:** `backend/app/api/routes.py`
 
 Two endpoints:
@@ -800,15 +800,15 @@ With `docker compose up` running:
 | T-06 | `core/config.py`                   | `DONE`  | Backend Core |
 | T-07 | `core/interfaces.py`               | `DONE`  | Backend Core |
 | T-08 | `core/logging.py`                  | `DONE`  | Backend Core |
-| T-09 | `ingestion/article_fetcher.py`     | `TODO`  | Ingestion    |
-| T-10 | `ingestion/chunker.py`             | `TODO`  | Ingestion    |
-| T-11 | `ingestion/graph.py`               | `TODO`  | Ingestion    |
-| T-12 | `rag/prompt_builder.py`            | `TODO`  | RAG          |
-| T-13 | `rag/summariser.py`                | `TODO`  | RAG          |
-| T-14 | `rag/retriever.py`                 | `TODO`  | RAG          |
-| T-15 | `rag/graph.py`                     | `TODO`  | RAG          |
-| T-16 | `api/schemas.py`                   | `TODO`  | API Layer    |
-| T-17 | `api/routes.py`                    | `TODO`  | API Layer    |
+| T-09 | `ingestion/article_fetcher.py`     | `DONE`        | Ingestion |
+| T-10 | `ingestion/chunker.py`             | `DONE`  | Ingestion    |
+| T-11 | `ingestion/graph.py`               | `DONE`  | Ingestion    |
+| T-12 | `rag/prompt_builder.py`            | `DONE`  | RAG          |
+| T-13 | `rag/summariser.py`                | `DONE`  | RAG          |
+| T-14 | `rag/retriever.py`                 | `DONE`  | RAG          |
+| T-15 | `rag/graph.py`                     | `DONE`  | RAG          |
+| T-16 | `api/schemas.py`                   | `DONE`  | API Layer    |
+| T-17 | `api/routes.py`                    | `DONE`  | API Layer    |
 | T-18 | `main.py`                          | `DONE`  | API Layer    |
 | T-19 | Unit: `test_article_fetcher.py`    | `TODO`  | Tests        |
 | T-20 | Unit: `test_chunker.py`            | `TODO`  | Tests        |
