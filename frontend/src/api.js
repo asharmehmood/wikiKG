@@ -24,7 +24,22 @@ const BASE = ''
  * @returns {Promise<{article_title: string, summary: string, chunk_count: number, collection_id: string}>}
  */
 export async function ingestUrl(url) {
-  throw new Error('Implemented in T-25')
+  const response = await fetch(`${BASE}/api/ingest`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  })
+
+  if (!response.ok) {
+    let detail = `Server error (${response.status})`
+    try {
+      const body = await response.json()
+      if (body.detail) detail = body.detail
+    } catch (_) { /* swallow JSON parse error */ }
+    throw new Error(detail)
+  }
+
+  return response.json()
 }
 
 /**
@@ -36,5 +51,53 @@ export async function ingestUrl(url) {
  * @returns {Promise<void>}
  */
 export async function streamChat(question, collectionId, history, onToken, onDone) {
-  throw new Error('Implemented in T-25')
+  const response = await fetch(`${BASE}/api/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question, collection_id: collectionId, history }),
+  })
+
+  if (!response.ok) {
+    let detail = `Server error (${response.status})`
+    try {
+      const body = await response.json()
+      if (body.detail) detail = body.detail
+    } catch (_) { /* swallow */ }
+    throw new Error(detail)
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+
+    // SSE chunks may contain multiple events separated by \n\n
+    const parts = buffer.split('\n\n')
+    buffer = parts.pop() // keep incomplete last chunk
+
+    for (const part of parts) {
+      for (const line of part.split('\n')) {
+        if (!line.startsWith('data: ')) continue
+        const json = line.slice(6).trim()
+        if (!json) continue
+
+        let event
+        try { event = JSON.parse(json) } catch (_) { continue }
+
+        if (event.done === true) {
+          onDone(event.sources ?? [])
+        } else if (event.token !== undefined) {
+          onToken(event.token)
+        } else if (event.error) {
+          throw new Error(event.error)
+        }
+      }
+    }
+  }
 }
+

@@ -25,6 +25,13 @@ CONTEXT_OPEN = "<context>"
 CONTEXT_CLOSE = "</context>"
 MAX_HISTORY_TURNS = 6
 
+_CONVERSATIONAL_SYSTEM_PROMPT = (
+    "You are a helpful assistant that has been discussing a Wikipedia article with the user."
+    " Answer the user's message naturally based on the conversation history."
+    " If they ask about specific article facts not present in the history, let them know"
+    " you'd need to look it up."
+)
+
 _SYSTEM_PROMPT = (
     "You are a helpful assistant that answers questions strictly based on the provided"
     " Wikipedia article context. "
@@ -74,5 +81,25 @@ def build_messages(
             messages.append(AIMessage(content=msg.content))
 
     # Current question
+    messages.append(HumanMessage(content=question))
+    return messages
+
+
+def build_conversational_messages(
+    question: str,
+    history: list[ChatMessage],
+) -> list[BaseMessage]:
+    """Build a message list for conversational replies that don't need RAG.
+
+    Uses a lighter system prompt and includes recent history, but skips the
+    XML context block entirely.
+    """
+    messages: list[BaseMessage] = [SystemMessage(content=_CONVERSATIONAL_SYSTEM_PROMPT)]
+    recent_history = history[-(MAX_HISTORY_TURNS * 2):]
+    for msg in recent_history:
+        if msg.role == "human":
+            messages.append(HumanMessage(content=msg.content))
+        else:
+            messages.append(AIMessage(content=msg.content))
     messages.append(HumanMessage(content=question))
     return messages

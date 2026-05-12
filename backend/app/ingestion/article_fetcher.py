@@ -42,8 +42,8 @@ WIKIPEDIA_URL_PATTERN = re.compile(
 # Wikimedia ToS requires a descriptive User-Agent (NFR-11)
 USER_AGENT = "wikiKG/0.1 (RAG demo; github.com/wikikg) python-httpx"
 
-# Wikipedia REST API base
-_API_BASE = "https://en.wikipedia.org/api/rest_v1"
+# Wikipedia MediaWiki API base (replaces the decommissioned mobile-sections endpoint)
+_MEDIAWIKI_API = "https://en.wikipedia.org/w/api.php"
 
 # HTTP timeout for all Wikipedia requests
 _TIMEOUT = httpx.Timeout(30.0)
@@ -104,17 +104,33 @@ def _build_headers() -> dict[str, str]:
     return {"User-Agent": USER_AGENT, "Accept": "application/json"}
 
 
-def _cleaned_text_from_sections(sections: list[dict]) -> tuple[str, list[str]]:
-    """Return (full_cleaned_text, section_title_list) from mobile-sections payload."""
+def _split_sections(extract: str) -> tuple[str, list[str]]:
+    """Split a MediaWiki plain-text extract into (cleaned_text, section_titles).
+
+    The MediaWiki API with exsectionformat=wiki embeds section headings as
+    '== Heading ==' lines inside the extract text.
+    """
+    # Split on any level of heading (==, ===, ====, …)
+    parts_raw = re.split(r"\n(==+\s*.+?\s*==+)\n", extract)
+
     parts: list[str] = []
     titles: list[str] = []
-    for section in sections:
-        heading = section.get("line", "Introduction")
-        body_html = section.get("text", "")
-        body = _strip_html(body_html).strip()
+
+    # parts_raw = [intro_body, "== H1 ==", h1_body, "== H2 ==", h2_body, …]
+    intro = parts_raw[0].strip()
+    if intro:
+        parts.append(f"Introduction\n{intro}")
+        titles.append("Introduction")
+
+    for i in range(1, len(parts_raw), 2):
+        heading_raw = parts_raw[i]
+        body = parts_raw[i + 1].strip() if i + 1 < len(parts_raw) else ""
+        # Strip the == markers to get a clean heading string
+        heading = re.sub(r"^=+\s*|\s*=+$", "", heading_raw).strip()
         if body:
             parts.append(f"{heading}\n{body}")
             titles.append(heading)
+
     return "\n\n".join(parts), titles
 
 
@@ -122,6 +138,9 @@ def _cleaned_text_from_sections(sections: list[dict]) -> tuple[str, list[str]]:
 
 async def fetch_article(url: str) -> ArticleData:
     """Validate *url*, fetch the Wikipedia article, and return cleaned text.
+
+    Uses the MediaWiki action=query&prop=extracts API (the mobile-sections
+    endpoint was decommissioned in 2024 per T328036).
 
     Raises:
         ValidationError      — URL fails the allowlist.
@@ -132,43 +151,43 @@ async def fetch_article(url: str) -> ArticleData:
     title = _validate_url(url)
     logger.info("Fetching article", extra={"title": title})
 
-    headers = _build_headers()
+    params = {
+        "action": "query",
+        "titles": title,
+        "prop": "extracts",
+        "explaintext": "1",        # Return plain text, not HTML
+        "exsectionformat": "wiki", # Embed section headings as == Heading ==
+        "format": "json",
+        "formatversion": "2",
+        "redirects": "1",          # Follow Wikipedia redirects automatically
+    }
 
     async with httpx.AsyncClient(
-        follow_redirects=False,  # SSRF mitigation — must stay False
+        follow_redirects=False,  # SSRF mitigation — must stay False (applies to our requests, not wiki redirects handled server-side)
         timeout=_TIMEOUT,
-        headers=headers,
+        headers=_build_headers(),
     ) as client:
-        # ── Sections (main body) ──────────────────────────────────────────
-        sections_url = f"{_API_BASE}/page/mobile-sections/{title}"
         try:
-            resp = await client.get(sections_url)
+            resp = await client.get(_MEDIAWIKI_API, params=params)
         except httpx.RequestError as exc:
-            raise FetchError(f"Network error fetching {sections_url!r}: {exc}") from exc
+            raise FetchError(f"Network error fetching article {title!r}: {exc}") from exc
 
-        if resp.status_code == 302:
-            raise FetchError(
-                f"Wikipedia redirected {title!r} — possible page move. "
-                "Re-submit with the canonical URL."
-            )
-        if resp.status_code == 404:
-            raise FetchError(f"Wikipedia article not found: {title!r}")
         if resp.status_code != 200:
             raise FetchError(
-                f"Wikipedia API returned {resp.status_code} for {title!r}"
+                f"MediaWiki API returned {resp.status_code} for {title!r}"
             )
 
-        payload = resp.json()
-        # mobile-sections: {"lead": {...}, "remaining": {"sections": [...]}}
-        lead_section = payload.get("lead", {})
-        remaining_sections = payload.get("remaining", {}).get("sections", [])
+    data = resp.json()
+    pages = data.get("query", {}).get("pages", [])
+    if not pages:
+        raise FetchError(f"No page data returned for {title!r}")
 
-        # Prepend the lead section (index 0) as "Introduction"
-        all_sections = [
-            {"line": lead_section.get("displaytitle", title), "text": lead_section.get("sections", [{}])[0].get("text", "")}
-        ] + remaining_sections
+    page = pages[0]
+    if page.get("missing"):
+        raise FetchError(f"Wikipedia article not found: {title!r}")
 
-        cleaned_text, section_titles = _cleaned_text_from_sections(all_sections)
+    extract: str = page.get("extract", "")
+    cleaned_text, section_titles = _split_sections(extract)
 
     if len(cleaned_text) < MIN_ARTICLE_CHARS:
         raise EmptyArticleError(

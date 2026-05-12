@@ -28,7 +28,7 @@ from langgraph.graph import END, StateGraph
 from app.api.schemas import ChatMessage
 from app.core.interfaces import LLMInterface, VectorStoreInterface
 from app.core.logging import get_logger
-from app.rag.prompt_builder import build_messages
+from app.rag.prompt_builder import build_conversational_messages, build_messages
 from app.rag.retriever import embed_query
 
 logger = get_logger(__name__)
@@ -41,6 +41,10 @@ class RagState(TypedDict, total=False):
     history: list[ChatMessage]
     retrieved_docs: list[Document]
     messages: list[BaseMessage]
+    answer: str
+    needs_rag: bool  # set by classify node; True → full RAG path, False → direct reply
+    # Internal — computed by embed_question, consumed by retrieve
+    _query_vector: list[float]
     # Dependencies injected by run_rag(); prefixed with _ by convention.
     _store: VectorStoreInterface
     _llm: LLMInterface
@@ -49,9 +53,44 @@ class RagState(TypedDict, total=False):
     _top_k: int
 
 
+# Prompt used by the classify node — kept short for low latency.
+_CLASSIFY_SYSTEM = (
+    "You are a routing assistant. Decide whether the user message requires retrieving"
+    " specific facts from a Wikipedia article, or whether it can be answered from the"
+    " conversation history alone (e.g. greetings, thanks, follow-up clarifications,"
+    " questions about yourself).\n"
+    "Reply with ONLY one word: RAG or CHAT."
+)
+
+
 # ---------------------------------------------------------------------------
 # Node functions
 # ---------------------------------------------------------------------------
+
+
+async def _node_classify(state: RagState) -> dict[str, Any]:
+    """Decide whether the question needs RAG retrieval or a direct LLM reply."""
+    from langchain_core.messages import HumanMessage as HM, SystemMessage as SM  # local to avoid circular
+    llm: LLMInterface = state["_llm"]
+    raw = await llm.generate([SM(content=_CLASSIFY_SYSTEM), HM(content=state["question"])])
+    needs_rag = "rag" in raw.strip().lower()
+    logger.info("rag_classify", extra={"needs_rag": needs_rag, "classifier_raw": raw.strip()[:20]})
+    return {"needs_rag": needs_rag}
+
+
+def _route_after_classify(state: RagState) -> str:
+    """Conditional edge: send to embed_question (RAG) or direct_prompt (CHAT)."""
+    return "embed_question" if state.get("needs_rag", True) else "direct_prompt"
+
+
+async def _node_direct_build_prompt(state: RagState) -> dict[str, Any]:
+    """Build the message list for conversational replies (no retrieval)."""
+    messages = build_conversational_messages(
+        question=state["question"],
+        history=state.get("history", []),
+    )
+    return {"messages": messages, "retrieved_docs": []}
+
 
 async def _node_embed_question(state: RagState) -> dict[str, Any]:
     """Embed the user question with the retrieval prefix."""
@@ -105,15 +144,22 @@ async def _node_stream_answer(state: RagState) -> dict[str, Any]:
 
 def _build_graph() -> StateGraph:
     g: StateGraph = StateGraph(RagState)  # type: ignore[arg-type]
+    g.add_node("classify", _node_classify)
     g.add_node("embed_question", _node_embed_question)
     g.add_node("retrieve", _node_retrieve)
     g.add_node("build_prompt", _node_build_prompt)
+    g.add_node("direct_prompt", _node_direct_build_prompt)
     g.add_node("stream_answer", _node_stream_answer)
 
-    g.set_entry_point("embed_question")
+    g.set_entry_point("classify")
+    g.add_conditional_edges("classify", _route_after_classify, {
+        "embed_question": "embed_question",
+        "direct_prompt": "direct_prompt",
+    })
     g.add_edge("embed_question", "retrieve")
     g.add_edge("retrieve", "build_prompt")
     g.add_edge("build_prompt", "stream_answer")
+    g.add_edge("direct_prompt", "stream_answer")
     g.add_edge("stream_answer", END)
     return g
 
@@ -219,14 +265,21 @@ async def prepare_rag(
 
 
 def _build_setup_graph() -> StateGraph:
-    """Graph that stops after build_prompt (used for SSE streaming)."""
+    """Graph that stops after build_prompt (used for SSE streaming via prepare_rag)."""
     g: StateGraph = StateGraph(RagState)  # type: ignore[arg-type]
+    g.add_node("classify", _node_classify)
     g.add_node("embed_question", _node_embed_question)
     g.add_node("retrieve", _node_retrieve)
     g.add_node("build_prompt", _node_build_prompt)
+    g.add_node("direct_prompt", _node_direct_build_prompt)
 
-    g.set_entry_point("embed_question")
+    g.set_entry_point("classify")
+    g.add_conditional_edges("classify", _route_after_classify, {
+        "embed_question": "embed_question",
+        "direct_prompt": "direct_prompt",
+    })
     g.add_edge("embed_question", "retrieve")
     g.add_edge("retrieve", "build_prompt")
     g.add_edge("build_prompt", END)
+    g.add_edge("direct_prompt", END)
     return g

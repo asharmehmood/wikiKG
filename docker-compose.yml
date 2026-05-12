@@ -1,46 +1,66 @@
-# docker-compose.yml stub — fully implemented in T-28
-# Services: backend (8000), qdrant (6333), ollama (optional 11434)
+# docker-compose.yml
+# Services: backend (8000), qdrant (6333), ollama (optional — enable with --profile gpu)
+#
+# Linux users: Ollama runs on the host. The `extra_hosts` entry maps host-gateway so
+# the backend container can reach http://host.docker.internal:11434.
+# Docker Desktop on macOS/Windows resolves host.docker.internal automatically.
 
 services:
+
+  # ── Backend (FastAPI + built frontend) ────────────────────────────────────
   backend:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     ports:
-      - "8000:8000"
-    env_file: .env
+      - "9000:8000"
+    environment:
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: ${QDRANT_PORT:-6333}
+      GEN_MODEL: ${GEN_MODEL:-llama3:8b}
+      EMBED_MODEL: ${EMBED_MODEL:-mxbai-embed-large}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      HOST_PORT: ${HOST_PORT:-9000}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       qdrant:
         condition: service_healthy
     restart: unless-stopped
-    # TODO T-28: add volumes, healthcheck, extra_hosts for Linux ollama
 
+  # ── Qdrant vector store ────────────────────────────────────────────────────
   qdrant:
     image: qdrant/qdrant:v1.13.3
     ports:
       - "6333:6333"
     volumes:
       - qdrant_data:/qdrant/storage
-    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:6333/healthz || exit 1"]
+      test: ["CMD-SHELL", "bash -c ':>/dev/tcp/127.0.0.1/6333'"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 15s
+    restart: unless-stopped
 
-  # ollama:           # Uncomment for clean-room mode (DESIGN.md §7)
-  #   image: ollama/ollama:latest
-  #   ports:
-  #     - "11434:11434"
-  #   volumes:
-  #     - ollama_data:/root/.ollama
-  #   restart: unless-stopped
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
-  #     interval: 15s
-  #     timeout: 5s
-  #     retries: 5
-  #     start_period: 20s
+  # ── Ollama (optional — activate with: docker compose --profile gpu up) ─────
+  ollama:
+    image: ollama/ollama:latest
+    profiles:
+      - gpu
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ':>/dev/tcp/127.0.0.1/11434'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
 
 volumes:
   qdrant_data:
-  # ollama_data:
+  ollama_data:
